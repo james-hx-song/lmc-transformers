@@ -1,6 +1,6 @@
 import sys
 from ast import literal_eval
-from config.GPTconfig import MinGPTConfig, GPT2Config, ToyGPTConfig
+from config.GPTconfig import MinGPTConfig, GPT2Config, ToyGPTConfig, CompactGPTConfig, TinyGPTConfig
 
 for arg in sys.argv[1:]:
     if '=' not in arg:
@@ -18,6 +18,10 @@ for arg in sys.argv[1:]:
                 attempt = GPT2Config()
             elif 'ToyGPT' in val:
                 attempt = ToyGPTConfig()
+            elif 'CompactGPT' in val:
+                attempt = CompactGPTConfig()
+            elif 'TinyGPT' in val:
+                attempt = TinyGPTConfig()
             else:
                 raise ValueError(f"Model config {val} not found")
         else:

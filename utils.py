@@ -14,7 +14,7 @@ def interpolate_weights(model1, model2, baseline, alpha, device='cpu'):
     return interpolated_model
 
 def visualize_interpolation(alphas, error_rates, experiment):
-    error_rates *= 100
+    # error_rates *= 100
 
     if not os.path.exists("process_imgs"):
         os.makedirs("process_imgs")
@@ -23,7 +23,7 @@ def visualize_interpolation(alphas, error_rates, experiment):
     plt.legend(['Eval', 'Train'])
     plt.xlabel('Interpolation')
     plt.ylabel('Error (%)')
-    plt.ylim(0, 100)
+    # plt.ylim(0, 100)
     plt.title(experiment)
 
     plt.grid(True)  # Enable both major and minor grid lines

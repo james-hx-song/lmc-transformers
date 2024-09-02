@@ -67,15 +67,18 @@ def get_batch(mode):
 
     return x, y
 
-def evaluate(model, eval_iter='all'):
+def evaluate(model, eval_iter='all', mode='train'):
     model.eval()
-
+    if mode == 'train':
+        data = train_data
+    else:
+        data = val_data
     total_loss = 0
     if eval_iter == 'all':
         count = 0
-        for i in range(0, len(val_data) - block_size, block_size):
-            x = torch.from_numpy(val_data[i:i+block_size].astype(dtype=np.int64)).unsqueeze(0)
-            y = torch.from_numpy(val_data[i+1:i+block_size+1].astype(dtype=np.int64)).unsqueeze(0)
+        for i in range(0, len(data) - block_size, block_size):
+            x = torch.from_numpy(data[i:i+block_size].astype(dtype=np.int64)).unsqueeze(0)
+            y = torch.from_numpy(data[i+1:i+block_size+1].astype(dtype=np.int64)).unsqueeze(0)
 
             x, y = x.to(device), y.to(device)
 
@@ -90,7 +93,7 @@ def evaluate(model, eval_iter='all'):
     else:
         assert type(eval_iter) == int, "eval_iter must be 'all' or integer"
         for _ in range(eval_iter):
-            x, y = get_batch('val')
+            x, y = get_batch(mode)
             x, y = x.to(device), y.to(device)
 
             with torch.no_grad():
@@ -180,9 +183,9 @@ error_rates = torch.zeros((2, res))
 eval_iter = 100
 for i, alpha in enumerate(alphas):
     interpolated_model = interpolate_weights(model1, model2, baseline, alpha, device=device)
-    acc = evaluate(model1, eval_iter=eval_iter)
+    acc = evaluate(interpolated_model, eval_iter=eval_iter, mode='val')
     error_rates[0, i] = 1 - acc
-    acc = evaluate(model2, eval_iter=eval_iter)
+    acc = evaluate(interpolated_model, eval_iter=eval_iter, mode='train')
     error_rates[1, i] = 1 - acc
 
 visualize_interpolation(alphas, error_rates, f'{dataset}_{model_config.__class__.__name__}')

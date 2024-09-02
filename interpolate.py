@@ -5,6 +5,7 @@ import torch
 import numpy as np
 
 import os
+import sys
 
 from utils import interpolate_weights, visualize_interpolation
 
@@ -22,7 +23,12 @@ print(f"Using {device}")
 
 colab = False
 
-iters = 9500
+model_iters = 9500 
+
+# Interpolation
+eval_iters = 30
+res = 30
+
 
 # Take command-line configurations
 exec(open('config/configurator.py').read())
@@ -38,14 +44,32 @@ baseline = GPT(model_config)
 print(f"Model config: {model_config}")
 
 # Interpolate
-checkpoint = torch.load(os.path.join(dir_path, 'models', dataset, model_config.__class__.__name__, 'model1', f'iteration={iters}.checkpoint.pth.tar'), map_location=torch.device(device), weights_only=True)
+checkpoint = torch.load(os.path.join(dir_path, 'models', dataset, model_config.__class__.__name__, 'model1', f'iteration={model_iters}.checkpoint.pth.tar'), map_location=torch.device(device), weights_only=True)
 model1.load_state_dict(checkpoint['model'])
-checkpoint = torch.load(os.path.join(dir_path, 'models', dataset, model_config.__class__.__name__, 'model2', f'iteration={iters}.checkpoint.pth.tar'), map_location=torch.device(device), weights_only=True)
+checkpoint = torch.load(os.path.join(dir_path, 'models', dataset, model_config.__class__.__name__, 'model2', f'iteration={model_iters}.checkpoint.pth.tar'), map_location=torch.device(device), weights_only=True)
 model2.load_state_dict(checkpoint['model'])
 
 batch_size = model_config.batch_size
 block_size = model_config.block_size
 
+
+# Sampling (Optional)
+# import tiktoken
+
+# prompt = "No, sir, nor I mean it not."
+# num_copies = 2
+# max_len = 30
+# enc = tiktoken.get_encoding('gpt2')
+# tokens = enc.encode(prompt)
+
+# model1.to(device)
+# next_tokens = model1.generate(tokens, max_len, num_copies, device)
+
+# for i in range(num_copies):
+#     tokens = next_tokens[i, :max_len].tolist()
+#     text = enc.decode(tokens)
+#     print(text)
+# sys.exit(0)
 
 # Dataset
 
@@ -106,16 +130,16 @@ def evaluate(model, eval_iter='all', mode='train'):
     return total_loss
 
 
-res = 30
 alphas = np.linspace(0, 1, res)
-eval_iter = 100
+
 error_rates = np.zeros((2, res))
 for i, alpha in enumerate(alphas):
     interpolated_model = interpolate_weights(model1, model2, baseline, alpha, device=device)
-    err = evaluate(interpolated_model, eval_iter=eval_iter, mode='val')
+    err = evaluate(interpolated_model, eval_iter=eval_iters, mode='val')
     error_rates[0, i] = err
-    err = evaluate(interpolated_model, eval_iter=eval_iter, mode='train')
+    err = evaluate(interpolated_model, eval_iter=eval_iters, mode='train')
     error_rates[1, i] = err
+    print(f"Iteration {i}")
 
 visualize_interpolation(alphas, error_rates, dir_path, f'{dataset}_{model_config.__class__.__name__}')
 

@@ -1,35 +1,15 @@
-import torch
-import numpy as np
-
-import time
-import sys
-import os
-
 from config.GPTconfig import MinGPTConfig, GPT2Config, ToyGPTConfig
 from GPT import GPT
 
+import torch
+import numpy as np
+
+import os
+
 from utils import interpolate_weights, visualize_interpolation
 
-
-# ----------------- Model Configuration ----------------- #
 model_config = MinGPTConfig()
 dataset = 'fineweb'
-
-# Optimizer Configuration
-# LR
-min_lr = 6e-5
-max_lr = 6e-4
-
-max_iters = 3000
-
-betas = (0.9, 0.95)
-eps = 1e-8
-
-grad_clip = 1.0
-
-# Scheduler Configuration
-warmup_steps = 1200
-max_steps = 2500
 
 device = 'cpu'
 device_type = 'cpu'
@@ -42,16 +22,32 @@ print(f"Using {device}")
 
 colab = False
 
+iters = 9500
 
+# Take command-line configurations
 exec(open('config/configurator.py').read())
+
 dir_path = ''
 if colab:
     dir_path = '/content/drive/My Drive/lmc-transformers'
 
+model1 = GPT(model_config)
+model2 = GPT(model_config)
+baseline = GPT(model_config)
+
+print(f"Model config: {model_config}")
+
+# Interpolate
+checkpoint = torch.load(os.path.join(dir_path, 'models', dataset, model_config.__class__.__name__, 'model1', f'iteration={iters}.checkpoint.pth.tar'), map_location=torch.device(device), weights_only=True)
+model1.load_state_dict(checkpoint['model'])
+checkpoint = torch.load(os.path.join(dir_path, 'models', dataset, model_config.__class__.__name__, 'model2', f'iteration={iters}.checkpoint.pth.tar'), map_location=torch.device(device), weights_only=True)
+model2.load_state_dict(checkpoint['model'])
+
 batch_size = model_config.batch_size
 block_size = model_config.block_size
 
-print(f"Model config: {model_config}")
+
+# Dataset
 
 # ----------------- Data Loading ----------------- #
 dataset_dir = f'datasets/{dataset}'
@@ -109,83 +105,11 @@ def evaluate(model, eval_iter='all', mode='train'):
     
     return total_loss
 
-def get_lr(i):
-    if i < warmup_steps:
-        return min_lr + (max_lr - min_lr) * i / warmup_steps
-    elif i > max_steps:
-        return min_lr
-    
-    ratio = (i - warmup_steps) / (max_steps - warmup_steps)
-    coeff = 0.5 * (1 + np.cos(np.pi * ratio))
 
-    return min_lr + (max_lr - min_lr) * coeff
-
-
-# ----------------- Model Architecture ----------------- #
-model1 = GPT(model_config)
-model2 = GPT(model_config)
-baseline = GPT(model_config)
-
-print(f"Number of parameters: {sum(p.numel() for p in model1.parameters())}")
-
-
-model2.load_state_dict(model1.state_dict()) # Ensure they have the same initial parameters
-
-optimizer1 = torch.optim.Adam(model1.parameters(), lr=min_lr, betas=betas, eps=eps)
-optimizer2 = torch.optim.Adam(model2.parameters(), lr=min_lr, betas=betas, eps=eps)
-
-model_dir = os.path.join(dir_path, f'models/{dataset}/{model_config.__class__.__name__}')
-print(model_dir)
-if not os.path.exists(os.path.join(model_dir, 'model1')):
-    os.makedirs(os.path.join(model_dir, 'model1'))
-    os.makedirs(os.path.join(model_dir, 'model2'))
-
-# ----------------- Training ----------------- #
-def train(model, optimizer, model_name='model1'):
-    model.to(device)
-
-    # print(f"Initial Loss: {evaluate(model, 100)}")
-    # sys.exit(0)
-
-    for i in range(max_iters):
-        x, y = get_batch('train')
-        x, y = x.to(device), y.to(device)
-
-        t0 = time.time()
-
-        optimizer.zero_grad()
-
-        logits, loss = model(x, y)
-
-        loss.backward()
-
-        torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = get_lr(i)
-
-        
-        optimizer.step()
-        if device == "cuda":
-            torch.cuda.synchronize() # wait for the GPU to finish work
-        t1 = time.time()
-        
-        if (i+1) % 500 == 0:
-            torch.save({'model': model.state_dict()}, os.path.join(model_dir, model_name, f'iteration={i+1}.checkpoint.pth.tar'))
-
-        print(f"Step {i:5} | Loss: {loss:10.6f} | Time: {(t1-t0)*1e3:10.2f} ms")
-
-
-train(model1, optimizer1, 'model1')
-train(model2, optimizer2, 'model2')
-
-
-# ----------------- Linear Interpolation ----------------- #
 res = 30
-alphas = torch.linspace(0, 1, res)
-
-error_rates = torch.zeros((2, res))
+alphas = np.linspace(0, 1, res)
 eval_iter = 100
+error_rates = np.zeros((2, res))
 for i, alpha in enumerate(alphas):
     interpolated_model = interpolate_weights(model1, model2, baseline, alpha, device=device)
     err = evaluate(interpolated_model, eval_iter=eval_iter, mode='val')
@@ -194,3 +118,7 @@ for i, alpha in enumerate(alphas):
     error_rates[1, i] = err
 
 visualize_interpolation(alphas, error_rates, dir_path, f'{dataset}_{model_config.__class__.__name__}')
+
+
+
+

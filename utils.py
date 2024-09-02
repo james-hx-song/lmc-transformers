@@ -16,13 +16,13 @@ def interpolate_weights(model1, model2, baseline, alpha, device='cpu'):
 def visualize_interpolation(alphas, error_rates, dir, experiment):
     # error_rates *= 100
 
-    if not os.path.exists("process_imgs"):
-        os.makedirs("process_imgs")
+    if not os.path.exists(os.path.join(dir, "process_imgs")):
+        os.makedirs(os.path.join(dir, "process_imgs"))
     plt.plot(alphas, error_rates[0, :], 'r') # Eval
     plt.plot(alphas, error_rates[1, :], 'b') # Train
     plt.legend(['Eval', 'Train'])
     plt.xlabel('Interpolation')
-    plt.ylabel('Error (%)')
+    plt.ylabel('Loss (Entropy)')
     # plt.ylim(0, 100)
     plt.title(experiment)
 

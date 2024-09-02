@@ -40,8 +40,13 @@ elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
     device = 'mps'
 print(f"Using {device}")
 
+colab = False
+
 
 exec(open('config/configurator.py').read())
+dir_path = ''
+if colab:
+    dir_path = '/content/drive/My Drive/lmc-transformers'
 
 batch_size = model_config.batch_size
 block_size = model_config.block_size
@@ -129,8 +134,8 @@ model2.load_state_dict(model1.state_dict()) # Ensure they have the same initial 
 optimizer1 = torch.optim.Adam(model1.parameters(), lr=min_lr, betas=betas, eps=eps)
 optimizer2 = torch.optim.Adam(model2.parameters(), lr=min_lr, betas=betas, eps=eps)
 
-model_dir = f'models/{dataset}/{model_config.__class__.__name__}'
-
+model_dir = os.path.join(dir_path, f'models/{dataset}/{model_config.__class__.__name__}')
+print(model_dir)
 if not os.path.exists(os.path.join(model_dir, 'model1')):
     os.makedirs(os.path.join(model_dir, 'model1'))
     os.makedirs(os.path.join(model_dir, 'model2'))
@@ -183,9 +188,9 @@ error_rates = torch.zeros((2, res))
 eval_iter = 100
 for i, alpha in enumerate(alphas):
     interpolated_model = interpolate_weights(model1, model2, baseline, alpha, device=device)
-    acc = evaluate(interpolated_model, eval_iter=eval_iter, mode='val')
-    error_rates[0, i] = 1 - acc
-    acc = evaluate(interpolated_model, eval_iter=eval_iter, mode='train')
-    error_rates[1, i] = 1 - acc
+    err = evaluate(interpolated_model, eval_iter=eval_iter, mode='val')
+    error_rates[0, i] = err
+    err = evaluate(interpolated_model, eval_iter=eval_iter, mode='train')
+    error_rates[1, i] = err
 
-visualize_interpolation(alphas, error_rates, f'{dataset}_{model_config.__class__.__name__}')
+visualize_interpolation(alphas, error_rates, dir_path, f'{dataset}_{model_config.__class__.__name__}')

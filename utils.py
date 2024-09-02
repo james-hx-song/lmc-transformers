@@ -13,7 +13,7 @@ def interpolate_weights(model1, model2, baseline, alpha, device='cpu'):
     interpolated_model.load_state_dict(interpolated_state_dict)
     return interpolated_model
 
-def visualize_interpolation(alphas, error_rates, experiment):
+def visualize_interpolation(alphas, error_rates, dir, experiment):
     # error_rates *= 100
 
     if not os.path.exists("process_imgs"):
@@ -29,6 +29,6 @@ def visualize_interpolation(alphas, error_rates, experiment):
     plt.grid(True)  # Enable both major and minor grid lines
     plt.grid(which='major', linestyle='-', linewidth='0.5', color='black')
     plt.grid(which='minor', linestyle=':', linewidth='0.5', color='gray')
-    plt.savefig(f"process_imgs/{experiment}_interpolation.png")
+    plt.savefig(os.path.join(dir, f"process_imgs/{experiment}_interpolation.png"))
     plt.show()
 

@@ -1,6 +1,4 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np
 
 import time
@@ -9,6 +7,8 @@ import os
 
 from config.GPTconfig import MinGPTConfig, GPT2Config, ToyGPTConfig
 from GPT import GPT
+
+from utils import interpolate_weights, visualize_interpolation
 
 
 # ----------------- Model Configuration ----------------- #
@@ -67,6 +67,40 @@ def get_batch(mode):
 
     return x, y
 
+def evaluate(model, eval_iter='all'):
+    model.eval()
+
+    total_loss = 0
+    if eval_iter == 'all':
+        count = 0
+        for i in range(0, len(val_data) - block_size, block_size):
+            x = torch.from_numpy(val_data[i:i+block_size].astype(dtype=np.int64)).unsqueeze(0)
+            y = torch.from_numpy(val_data[i+1:i+block_size+1].astype(dtype=np.int64)).unsqueeze(0)
+
+            x, y = x.to(device), y.to(device)
+
+            with torch.no_grad():
+                _, loss = model(x, y)
+
+            total_loss += loss.detach().item()
+            count += 1
+        print(f"Count: {count}")
+        total_loss /= count
+
+    else:
+        assert type(eval_iter) == int, "eval_iter must be 'all' or integer"
+        for _ in range(eval_iter):
+            x, y = get_batch('val')
+            x, y = x.to(device), y.to(device)
+
+            with torch.no_grad():
+                _, loss = model(x, y)
+
+            total_loss += loss.detach().item()
+        total_loss /= eval_iter
+    
+    return total_loss
+
 def get_lr(i):
     if i < warmup_steps:
         return min_lr + (max_lr - min_lr) * i / warmup_steps
@@ -82,6 +116,7 @@ def get_lr(i):
 # ----------------- Model Architecture ----------------- #
 model1 = GPT(model_config)
 model2 = GPT(model_config)
+baseline = GPT(model_config)
 
 print(f"Number of parameters: {sum(p.numel() for p in model1.parameters())}")
 
@@ -91,9 +126,18 @@ model2.load_state_dict(model1.state_dict()) # Ensure they have the same initial 
 optimizer1 = torch.optim.Adam(model1.parameters(), lr=min_lr, betas=betas, eps=eps)
 optimizer2 = torch.optim.Adam(model2.parameters(), lr=min_lr, betas=betas, eps=eps)
 
+model_dir = f'models/{dataset}/{model_config.__class__.__name__}'
+
+if not os.path.exists(os.path.join(model_dir, 'model1')):
+    os.makedirs(os.path.join(model_dir, 'model1'))
+    os.makedirs(os.path.join(model_dir, 'model2'))
+
 # ----------------- Training ----------------- #
-def train(model, optimizer):
+def train(model, optimizer, model_name='model1'):
     model.to(device)
+
+    # print(f"Initial Loss: {evaluate(model, 100)}")
+    # sys.exit(0)
 
     for i in range(max_iters):
         x, y = get_batch('train')
@@ -117,17 +161,28 @@ def train(model, optimizer):
         if device == "cuda":
             torch.cuda.synchronize() # wait for the GPU to finish work
         t1 = time.time()
-        # optimizer2.step()
         
-        # if i % 1000 == 0:
-        #     torch.save(model1.state_dict(), f'checkpoints/model1_{i}.pt')
-        #     torch.save(model2.state_dict(), f'checkpoints/model2_{i}.pt')
+        if i % 500 == 0:
+            torch.save(model.state_dict(), os.path.join(model_dir, model_name, f'iteration={i}.checkpoint.pth.tar'))
 
         print(f"Step {i:5} | Loss: {loss:10.6f} | Time: {(t1-t0)*1e3:10.2f} ms")
 
 
-# train(model1, optimizer1)
+train(model1, optimizer1, 'model1')
+train(model2, optimizer2, 'model2')
 
 
+# ----------------- Linear Interpolation ----------------- #
+res = 30
+alphas = torch.linspace(0, 1, res)
 
+error_rates = torch.zeros((2, res))
+eval_iter = 100
+for i, alpha in enumerate(alphas):
+    interpolated_model = interpolate_weights(model1, model2, baseline, alpha, device=device)
+    acc = evaluate(model1, eval_iter=eval_iter)
+    error_rates[0, i] = 1 - acc
+    acc = evaluate(model2, eval_iter=eval_iter)
+    error_rates[1, i] = 1 - acc
 
+visualize_interpolation(alphas, error_rates, f'{dataset}_{model_config.__class__.__name__}')

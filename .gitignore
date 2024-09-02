@@ -164,3 +164,4 @@ cython_debug/
 *.txt
 !requirements.txt
 *.npy
+models/

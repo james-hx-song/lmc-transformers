@@ -126,6 +126,58 @@ class GPT(nn.Module):
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
         return logits, loss
     
+    @classmethod
+    def from_pretrained(cls, model_name: str):
+        # The model name must be one of the following:
+        assert model_name in ['gpt2', 'gpt2-medium', 'gpt2-large', 'gpt2-xl']
+        config_args = {
+            'gpt2': dict(n_layer=12, n_head=12, n_embed=768), # 124 M Parameters
+            'gpt2-medium': dict(n_layer=24, n_head=16, n_embed=1024), # 350 M Parameters
+            'gpt2-large': dict(n_layers=36, n_head=20, n_embed=1280), # 774 M Parameters
+            'gpt2-xl': dict(n_layers=48, n_head=25, n_embed=1600) # 1.558 B Parameters
+        }[model_name]
+
+        config_args['vocab_size'] = 50257
+        config_args['block_size'] = 1024
+
+        # Now that we have all the params, we load it into dataclass
+        config = GPTconfig.GPT2Config(**config_args)
+        model = GPT(config)
+        sd = model.state_dict()
+
+
+        # Ignore the ones ending with attn.mask
+        sd_keys = sd.keys()
+        sd_keys = [k for k in sd_keys if not k.endswith('.attn.mask')]
+
+
+        # for k in sd_keys:
+        #     print(k)
+        # Load the Pretrained model
+        from transformers import GPT2LMHeadModel
+        model_pre = GPT2LMHeadModel.from_pretrained(model_name)
+        sd_pre = model_pre.state_dict()
+        # print(sd_pre.keys())
+        sd_keys_pre = sd_pre.keys()
+        sd_keys_pre = [k for k in sd_keys_pre if not k.endswith('.attn.bias')]
+        sd_keys_pre = [k for k in sd_keys_pre if not k.endswith('.attn.masked_bias')]
+
+        # Manually checking dimensions, some keys are transposed for whatever reason
+        transposed_keys = ["attn.c_attn.weight", "attn.c_proj.weight", "mlp.c_fc.weight", "mlp.c_proj.weight"]
+        assert len(sd_keys) == len(sd_keys_pre), f"{len(sd_keys)} != {len(sd_keys_pre)}"
+        for k in sd_keys_pre:
+            if any(k.endswith(tk) for tk in transposed_keys):
+                assert sd_pre[k].T.shape == sd[k].shape
+                with torch.no_grad():
+                    sd[k].copy_(sd_pre[k].T)
+            else:
+                # vanilla copy
+                assert sd_pre[k].shape == sd[k].shape, f"Key: {k}, {sd_pre[k].shape} != {sd[k].shape}"
+                with torch.no_grad():
+                    sd[k].copy_(sd_pre[k])
+
+        return model
+    
     def generate(self, prefix_tokens, max_len, num_copies, device):
         prefix_tokens = torch.tensor(prefix_tokens, dtype=torch.long).unsqueeze(0)
         prefix_tokens = prefix_tokens.repeat(num_copies, 1)
@@ -150,7 +202,9 @@ class GPT(nn.Module):
         return x
 
 if __name__ == '__main__':
-    model = GPT(GPTconfig.ToyGPTConfig())
+
+    # model = GPT.from_pretrained('gpt2')
+    model = GPT(GPTconfig.TinyGPTConfig())
     print(f"Number of parameters: {sum(p.numel() for p in model.parameters())}")
     # prompt = "Hello, I am a Large Language Model. "
     # num_copies = 2

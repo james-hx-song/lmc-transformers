@@ -38,12 +38,14 @@ if torch.cuda.is_available():
     device_type = 'cuda'
 elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
     device = 'mps'
-print(f"Using {device}")
+
 
 colab = False
+model_iters = 0
 
 
 exec(open('config/configurator.py').read())
+print(f"Using {device}")
 dir_path = ''
 if colab:
     dir_path = '/content/drive/My Drive/lmc-transformers'
@@ -131,6 +133,10 @@ print(f"Number of parameters: {sum(p.numel() for p in model1.parameters())}")
 
 model2.load_state_dict(model1.state_dict()) # Ensure they have the same initial parameters
 
+if model_iters > 0:
+    model1.load_state_dict(torch.load(f'models/{dataset}/{model_config.__class__.__name__}/model1/iteration={model_iters}.checkpoint.pth.tar',  map_location=torch.device(device), weights_only=True)['model'])
+    model2.load_state_dict(torch.load(f'models/{dataset}/{model_config.__class__.__name__}/model2/iteration={model_iters}.checkpoint.pth.tar', map_location=torch.device(device), weights_only=True)['model'])
+
 optimizer1 = torch.optim.Adam(model1.parameters(), lr=min_lr, betas=betas, eps=eps)
 optimizer2 = torch.optim.Adam(model2.parameters(), lr=min_lr, betas=betas, eps=eps)
 
@@ -171,9 +177,9 @@ def train(model, optimizer, model_name='model1'):
         t1 = time.time()
         
         if (i+1) % 500 == 0:
-            torch.save({'model': model.state_dict()}, os.path.join(model_dir, model_name, f'iteration={i+1}.checkpoint.pth.tar'))
+            torch.save({'model': model.state_dict()}, os.path.join(model_dir, model_name, f'iteration={model_iters + i+1}.checkpoint.pth.tar'))
 
-        print(f"Step {i:5} | Loss: {loss:10.6f} | Time: {(t1-t0)*1e3:10.2f} ms")
+        print(f"Step {model_iters + i:5} | Loss: {loss:10.6f} | Time: {(t1-t0)*1e3:10.2f} ms")
 
 
 train(model1, optimizer1, 'model1')

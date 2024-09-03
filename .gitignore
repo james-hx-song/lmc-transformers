@@ -166,3 +166,4 @@ cython_debug/
 *.npy
 models/
 process_imgs/
+.DS_Store

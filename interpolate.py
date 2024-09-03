@@ -101,17 +101,31 @@ def evaluate(model, eval_iter='all', mode='train'):
     total_loss = 0
     if eval_iter == 'all':
         count = 0
-        for i in range(0, len(data) - block_size, block_size):
-            x = torch.from_numpy(data[i:i+block_size].astype(dtype=np.int64)).unsqueeze(0)
-            y = torch.from_numpy(data[i+1:i+block_size+1].astype(dtype=np.int64)).unsqueeze(0)
-
-            x, y = x.to(device), y.to(device)
+        num_batches = (len(data) - block_size) // (block_size * batch_size)
+        for batch_idx in range(num_batches):
+            # Prepare the batch data
+            batch_x = []
+            batch_y = []
+            for i in range(batch_size):
+                start_idx = batch_idx * block_size * batch_size + i * block_size
+                end_idx = start_idx + block_size
+                
+                x = data[start_idx:end_idx].astype(dtype=np.int64)
+                y = data[start_idx + 1:end_idx + 1].astype(dtype=np.int64)
+                
+                batch_x.append(x)
+                batch_y.append(y)
+            
+            # Convert to tensors
+            batch_x = torch.from_numpy(np.array(batch_x)).to(device)
+            batch_y = torch.from_numpy(np.array(batch_y)).to(device)
 
             with torch.no_grad():
-                _, loss = model(x, y)
-
+                _, loss = model(batch_x, batch_y)
+            
+            # Accumulate loss
             total_loss += loss.detach().item()
-            count += 1
+            count += batch_size
         print(f"Count: {count}")
         total_loss /= count
 

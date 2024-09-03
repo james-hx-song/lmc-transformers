@@ -29,8 +29,8 @@ for arg in sys.argv[1:]:
                 attempt = literal_eval(val)
             except:
                 attempt = val
-
-            assert type(attempt) == type(globals()[key]), f"Argument of {key} ({val}) is not of type {type(globals()[key])}"
+            
+            assert type(attempt) == type(globals()[key]) or (key == 'eval_iters' and type(attempt) == str), f"Argument of {key} ({val}) is not of type {type(globals()[key])}"
 
         globals()[key] = attempt
 

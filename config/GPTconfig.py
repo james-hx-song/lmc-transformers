@@ -19,12 +19,12 @@ class MinGPTConfig: # 30 M
     n_head: int = 6
 
 @dataclass
-class CompactGPTConfig: # 13 M
+class CompactGPTConfig: # 12 M
     vocab_size: int = 50257
     n_embed: int = 192
     block_size: int = 64
     batch_size: int = 32
-    n_layer: int = 8
+    n_layer: int = 6
     n_head: int = 6
 
 @dataclass

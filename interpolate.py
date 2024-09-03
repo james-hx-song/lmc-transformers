@@ -125,9 +125,8 @@ def evaluate(model, eval_iter='all', mode='train'):
             
             # Accumulate loss
             total_loss += loss.detach().item()
-            count += batch_size
-        print(f"Count: {count}")
-        total_loss /= count
+        print(f"Count: {num_batches}")
+        total_loss /= num_batches
 
     else:
         assert type(eval_iter) == int, "eval_iter must be 'all' or integer"

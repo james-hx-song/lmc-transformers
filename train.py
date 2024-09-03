@@ -186,17 +186,17 @@ train(model1, optimizer1, 'model1')
 train(model2, optimizer2, 'model2')
 
 
-# ----------------- Linear Interpolation ----------------- #
-res = 30
-alphas = torch.linspace(0, 1, res)
+# # ----------------- Linear Interpolation ----------------- #
+# res = 30
+# alphas = torch.linspace(0, 1, res)
 
-error_rates = torch.zeros((2, res))
-eval_iter = 100
-for i, alpha in enumerate(alphas):
-    interpolated_model = interpolate_weights(model1, model2, baseline, alpha, device=device)
-    err = evaluate(interpolated_model, eval_iter=eval_iter, mode='val')
-    error_rates[0, i] = err
-    err = evaluate(interpolated_model, eval_iter=eval_iter, mode='train')
-    error_rates[1, i] = err
+# error_rates = torch.zeros((2, res))
+# eval_iter = 100
+# for i, alpha in enumerate(alphas):
+#     interpolated_model = interpolate_weights(model1, model2, baseline, alpha, device=device)
+#     err = evaluate(interpolated_model, eval_iter=eval_iter, mode='val')
+#     error_rates[0, i] = err
+#     err = evaluate(interpolated_model, eval_iter=eval_iter, mode='train')
+#     error_rates[1, i] = err
 
-visualize_interpolation(alphas, error_rates, dir_path, f'{dataset}_{model_config.__class__.__name__}')
+# visualize_interpolation(alphas, error_rates, dir_path, f'{dataset}_{model_config.__class__.__name__}')

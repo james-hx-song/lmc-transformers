@@ -29,6 +29,7 @@ model_iters = 9500
 eval_iters = 30
 res = 30
 
+extra = ''
 
 # Take command-line configurations
 exec(open('config/configurator.py').read())
@@ -154,7 +155,7 @@ for i, alpha in enumerate(alphas):
     error_rates[1, i] = err
     print(f"Iteration {i}")
 
-visualize_interpolation(alphas, error_rates, dir_path, f'{dataset}_{model_config.__class__.__name__}')
+visualize_interpolation(alphas, error_rates, dir_path, f'{dataset}_{model_config.__class__.__name__}_{extra}')
 
 
 

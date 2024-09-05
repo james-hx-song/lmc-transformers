@@ -204,7 +204,7 @@ class GPT(nn.Module):
 if __name__ == '__main__':
 
     # model = GPT.from_pretrained('gpt2')
-    model = GPT(GPTconfig.CompactGPTConfig())
+    model = GPT(GPTconfig.TinyGPTConfig())
     print(f"Number of parameters: {sum(p.numel() for p in model.parameters())}")
     # prompt = "Hello, I am a Large Language Model. "
     # num_copies = 2

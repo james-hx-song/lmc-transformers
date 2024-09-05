@@ -37,9 +37,9 @@ class ToyGPTConfig: # 1.65 M
     n_head: int = 4
 
 @dataclass
-class TinyGPTConfig: # 0.82 M
-    vocab_size: int = 50257
-    n_embed: int = 16
+class TinyGPTConfig: # 204 K
+    vocab_size: int = 65
+    n_embed: int = 64
     block_size: int = 8
     batch_size: int = 32
     n_layer: int = 4

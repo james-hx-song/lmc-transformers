@@ -19,6 +19,10 @@ If you are training on a GPU and the batch size don't fit, you can customize the
 ```bash
 python3 train.py --model_config=GPT2 --dataset=shakespeare --max_iters=1000 --warmup_steps=200 --max_steps=1000 --sim_batch_size=8
 ```
+I also have fine tuning setup in this repo. However, it currently only supports 124 M GPT-2. If you want to finetune, simply set ```fine_tune=True```.
+```bash
+python3 train.py --model_config=GPT2 --dataset=shakespeare --max_iters=1000 --warmup_steps=200 --max_steps=1000 --sim_batch_size=8 --fine_tune=True
+```
 
 If you are running on colab, there is an option to save your models to a folder on your google drive. First, you would have to mount your drive. Then, simply set the colab flag to be true: ```--colab=True```
 ```bash

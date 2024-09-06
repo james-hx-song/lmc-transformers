@@ -30,7 +30,7 @@ for arg in sys.argv[1:]:
             except:
                 attempt = val
             
-            assert type(attempt) == type(globals()[key]) or (key == 'eval_iters' and type(attempt) == str), f"Argument of {key} ({val}) is not of type {type(globals()[key])}"
+            assert type(attempt) == type(globals()[key]) or (key == 'eval_iters' and type(attempt) == str) or (key == 'sim_batch_size' and type(attempt) == int), f"Argument of {key} ({val}) is not of type {type(globals()[key])}"
 
         globals()[key] = attempt
 

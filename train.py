@@ -41,7 +41,10 @@ elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
 
 
 colab = False
+fine_tune = False
 model_iters = 0
+checkpoint_iter = 500
+sim_batch_size = 'same'
 
 
 exec(open('config/configurator.py').read())
@@ -50,10 +53,15 @@ dir_path = ''
 if colab:
     dir_path = '/content/drive/My Drive/lmc-transformers'
 
-batch_size = model_config.batch_size
+if sim_batch_size == 'same':
+    sim_batch_size = model_config.batch_size
+actual_batch_size = model_config.batch_size
 block_size = model_config.block_size
 
+accum_iters = actual_batch_size // sim_batch_size
+
 print(f"Model config: {model_config}")
+print(f"Actual Batch: {actual_batch_size}, Sim Batch: {sim_batch_size} Accumulation steps: {accum_iters}")
 
 # ----------------- Data Loading ----------------- #
 dataset_dir = f'datasets/{dataset}'
@@ -68,7 +76,7 @@ def get_batch(mode):
     else:
         data = val_data
     
-    idx = torch.randint(len(data) - block_size, (batch_size,))
+    idx = torch.randint(len(data) - block_size, (sim_batch_size,))
     x = torch.stack([torch.from_numpy(data[i:i+block_size].astype(dtype=np.int64)) for i in idx])
     y = torch.stack([torch.from_numpy(data[i+1:i+block_size+1].astype(dtype=np.int64)) for i in idx])
 
@@ -124,9 +132,18 @@ def get_lr(i):
 
 
 # ----------------- Model Architecture ----------------- #
-model1 = GPT(model_config)
-model2 = GPT(model_config)
-baseline = GPT(model_config)
+
+if fine_tune:
+    if model_config.__class__.__name__ != 'GPT2Config':
+        raise ValueError("Fine-tuning is only supported for GPT2Config")
+    model1 = GPT.from_pretrained('gpt2')
+    model2 = GPT.from_pretrained('gpt2')
+    baseline = GPT.from_pretrained('gpt2')
+
+else:
+    model1 = GPT(model_config)
+    model2 = GPT(model_config)
+    baseline = GPT(model_config)
 
 print(f"Number of parameters: {sum(p.numel() for p in model1.parameters())}")
 
@@ -140,7 +157,8 @@ if model_iters > 0:
 optimizer1 = torch.optim.Adam(model1.parameters(), lr=min_lr, betas=betas, eps=eps)
 optimizer2 = torch.optim.Adam(model2.parameters(), lr=min_lr, betas=betas, eps=eps)
 
-model_dir = os.path.join(dir_path, f'models/{dataset}/{model_config.__class__.__name__}')
+finetune_str = '_finetune' if fine_tune else ''
+model_dir = os.path.join(dir_path, f'models/{dataset}/{model_config.__class__.__name__}{finetune_str}')
 print(model_dir)
 if not os.path.exists(os.path.join(model_dir, 'model1')):
     os.makedirs(os.path.join(model_dir, 'model1'))
@@ -160,10 +178,15 @@ def train(model, optimizer, model_name='model1'):
         t0 = time.time()
 
         optimizer.zero_grad()
+        
+        loss_accum = 0
+        for _ in range(accum_iters):
+            with torch.autocast(device_type=device_type, dtype=torch.bfloat16):
+                _, loss = model(x, y)
 
-        logits, loss = model(x, y)
-
-        loss.backward()
+            loss /= accum_iters
+            loss_accum += loss.detach()
+            loss.backward()
 
         torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
 
@@ -176,7 +199,7 @@ def train(model, optimizer, model_name='model1'):
             torch.cuda.synchronize() # wait for the GPU to finish work
         t1 = time.time()
         
-        if (i+1) % 500 == 0:
+        if (i+1) % checkpoint_iter == 0 :
             torch.save({'model': model.state_dict()}, os.path.join(model_dir, model_name, f'iteration={model_iters + i+1}.checkpoint.pth.tar'))
 
         print(f"Step {model_iters + i:5} | Loss: {loss:10.6f} | Time: {(t1-t0)*1e3:10.2f} ms")

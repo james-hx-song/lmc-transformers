@@ -136,9 +136,14 @@ def get_lr(i):
 if fine_tune:
     if model_config.__class__.__name__ != 'GPT2Config':
         raise ValueError("Fine-tuning is only supported for GPT2Config")
+
+    print("Loading Pretrained 124 M")
     model1 = GPT.from_pretrained('gpt2')
     model2 = GPT.from_pretrained('gpt2')
     baseline = GPT.from_pretrained('gpt2')
+    # baseline.to(device)
+    # loss = evaluate(baseline, eval_iter=2, mode='eval')
+    # print("Pre-training loss:", loss)
 
 else:
     model1 = GPT(model_config)
@@ -150,16 +155,17 @@ print(f"Number of parameters: {sum(p.numel() for p in model1.parameters())}")
 
 model2.load_state_dict(model1.state_dict()) # Ensure they have the same initial parameters
 
+finetune_str = '_finetune' if fine_tune else ''
+model_dir = os.path.join(dir_path, f'models/{dataset}/{model_config.__class__.__name__}{finetune_str}')
+print(model_dir)
 if model_iters > 0:
-    model1.load_state_dict(torch.load(f'models/{dataset}/{model_config.__class__.__name__}/model1/iteration={model_iters}.checkpoint.pth.tar',  map_location=torch.device(device), weights_only=True)['model'])
-    model2.load_state_dict(torch.load(f'models/{dataset}/{model_config.__class__.__name__}/model2/iteration={model_iters}.checkpoint.pth.tar', map_location=torch.device(device), weights_only=True)['model'])
+    model1.load_state_dict(torch.load(f'{dir_path}/models/{dataset}/{model_config.__class__.__name__}/model1/iteration={model_iters}.checkpoint.pth.tar',  map_location=torch.device(device), weights_only=True)['model'])
+    model2.load_state_dict(torch.load(f'{dir_path}/models/{dataset}/{model_config.__class__.__name__}/model2/iteration={model_iters}.checkpoint.pth.tar', map_location=torch.device(device), weights_only=True)['model'])
 
 optimizer1 = torch.optim.Adam(model1.parameters(), lr=min_lr, betas=betas, eps=eps)
 optimizer2 = torch.optim.Adam(model2.parameters(), lr=min_lr, betas=betas, eps=eps)
 
-finetune_str = '_finetune' if fine_tune else ''
-model_dir = os.path.join(dir_path, f'models/{dataset}/{model_config.__class__.__name__}{finetune_str}')
-print(model_dir)
+
 if not os.path.exists(os.path.join(model_dir, 'model1')):
     os.makedirs(os.path.join(model_dir, 'model1'))
     os.makedirs(os.path.join(model_dir, 'model2'))

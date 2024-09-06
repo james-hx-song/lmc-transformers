@@ -5,7 +5,8 @@ class GPT2Config: # 124 M
     vocab_size: int = 50257 # (Radford et al. 2020), GPT 2 Tokenizer
     n_embed: int = 768
     block_size: int = 1024
-    batch_size: int = 512
+    # batch_size: int = 512
+    batch_size: int = 8
     n_layer: int = 12
     n_head: int = 12
 

@@ -35,3 +35,9 @@ python3 interpolate.py --model_config=GPT2 --model_iters=200 --eval_iters=all --
 ```
 
 Notice that ```eval_iters``` can be set to either "all" or an integer. If it is set to "all", it will evaluate the model on the entire test dataset. Otherwise, it will sample from the test dataset ```eval_iters``` number of times, with batch size specified in the model configurations. 
+
+## Acknowledgements
+
+The dataset and implementation of GPT-2 are largely inspired by Karpathy's minGPT.
+
+
